@@ -109,7 +109,10 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
         {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
           {:ok, document} = Floki.parse_document(body)
           Floki.find(document, ".entry-title > a")
-          |> Enum.map(fn {_, _, [v]} -> v end)
+          |> Enum.reduce(%{}, fn {_, attrs, [innerHTML]}, acc ->
+            {"href", href} = Enum.find(attrs, fn {attr_name, content} -> attr_name == "href" end)
+            Map.merge(acc, %{innerHTML => href})
+          end)
         {:ok, %HTTPoison.Response{status_code: 404}} ->
           IO.puts "Not found :("
         {:error, %HTTPoison.Error{reason: reason}} ->
@@ -121,8 +124,10 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
     schedule = TesseractOcr.read("/home/pedro/Downloads/Progamacao-geral_derby.png", %{lang: "por", psm: 1})
     |> String.split("\n")
     |> Enum.filter(fn v -> String.trim(v) |> String.length > 0 end)
-    |> Enum.map(fn v -> v
-      |> tokenize(movie_list)
+    |> Enum.map(fn v ->
+      formatted_movie_list = Enum.into(movie_list, [], fn {k,_v} -> k end)
+      v
+      |> tokenize(formatted_movie_list)
     end)
     |> Enum.filter(fn line -> Kernel.length(line) > 0 end)
     |> Enum.zip
@@ -133,6 +138,6 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
 
     # The home page is often custom made,
     # so skip the default app layout.
-    render(conn, :home, layout: false, schedule: schedule, days: days)
+    render(conn, :home, layout: false, schedule: schedule, days: days, movie_list: movie_list)
   end
 end

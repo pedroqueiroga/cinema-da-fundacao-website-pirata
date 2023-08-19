@@ -2,9 +2,12 @@
 <%= for day <- @days do %>
     <h1><%= day %></h1>
     <%= for {time_movie, idx} <- Enum.with_index(Tuple.to_list(@schedule[day])) do %>
+        <%= if rem(idx, 2) == 0 do %>
         <span><%= time_movie %></span>
+        <% end %>
         <%= if rem(idx, 2) == 1 do %>
-          <br/>
+        <.link href={@movie_list[time_movie]}><%= time_movie %></.link>
+        <br/>
         <% end %>
     <% end %>
 <% end %>
