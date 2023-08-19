@@ -1,6 +1,8 @@
 defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
   use CinemaDaFundacaoWebsitePirataWeb, :controller
 
+  @supported_cinemas ["porto", "derby"]
+
   def reverse(l) do
     case l do
       [] -> []
@@ -183,6 +185,6 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
 
     # The home page is often custom made,
     # so skip the default app layout.
-    render(conn, :home, layout: false, schedule: schedule, days: days, movie_list: movie_list, cinema: cinema)
+    render(conn, :home, layout: false, schedule: schedule, days: days, movie_list: movie_list, cinema: cinema, other_cinemas: Enum.filter(@supported_cinemas, fn s_c -> cinema !== s_c end))
   end
 end
