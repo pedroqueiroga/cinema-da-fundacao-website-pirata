@@ -39,7 +39,6 @@ defmodule CinemaDaFundacaoWebsitePirata.MixProject do
       {:phoenix_html, "~> 3.3"},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
       {:phoenix_live_view, "~> 0.19.0"},
-      {:floki, ">= 0.30.0", only: :test},
       {:phoenix_live_dashboard, "~> 0.8.0"},
       {:esbuild, "~> 0.7", runtime: Mix.env() == :dev},
       {:tailwind, "~> 0.2.0", runtime: Mix.env() == :dev},
@@ -50,7 +49,9 @@ defmodule CinemaDaFundacaoWebsitePirata.MixProject do
       {:gettext, "~> 0.20"},
       {:jason, "~> 1.2"},
       {:plug_cowboy, "~> 2.5"},
-      {:tesseract_ocr, "~> 0.1.5"}
+      {:tesseract_ocr, "~> 0.1.5"},
+      {:floki, "~> 0.34.0"},
+      {:httpoison, "~> 2.0"}
     ]
   end
 
