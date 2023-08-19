@@ -1,4 +1,13 @@
 # CinemaDaFundacaoWebsitePirata
+Versão pirata do cinemadafundacao.com.br.
+
+## Objetivo principal
+Montar um outro site mais amigável para hypermidia, usando elementos HTML interativos em vez de uma imagem para exibir a programação.
+
+## Desafio principal
+As informações não foram feitas para acesso automatizado, por exemplo aparecendo apenas em imagens. 
+
+### About Phoenix
 
 To start your Phoenix server:
 
@@ -9,7 +18,7 @@ Now you can visit [`localhost:4000`](http://localhost:4000) from your browser.
 
 Ready to run in production? Please [check our deployment guides](https://hexdocs.pm/phoenix/deployment.html).
 
-## Learn more
+#### Learn more
 
   * Official website: https://www.phoenixframework.org/
   * Guides: https://hexdocs.pm/phoenix/overview.html
