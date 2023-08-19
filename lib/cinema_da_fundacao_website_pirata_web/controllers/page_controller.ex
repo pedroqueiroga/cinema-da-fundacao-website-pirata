@@ -131,8 +131,14 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
     end
   end
 
+  # def image_path("porto"), do: ~p"/images/Progamacao-geral_porto.png"
+  # def image_path("derby"), do: "/images/Progamacao-geral_derby.png"
+  def image_path(cinema) do
+    Application.app_dir(:cinema_da_fundacao_website_pirata, "priv/static/images/Progamacao-geral_#{cinema}.png")
+  end
+
   def scan_schedule(days, movie_list, cinema) do
-    TesseractOcr.read("/home/pedro/Downloads/Progamacao-geral_#{cinema}.png", %{lang: "por", psm: 4})
+    TesseractOcr.read(image_path(cinema), %{lang: "por", psm: 4})
     |> String.split("\n")
     |> Enum.filter(fn v -> String.trim(v) |> String.length > 0 end)
     |> Enum.map(fn v ->
