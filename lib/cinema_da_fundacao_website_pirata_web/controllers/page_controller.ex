@@ -133,6 +133,22 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
     |> Enum.zip
     |> Enum.zip(days)
     |> Enum.reduce(%{}, fn {horario, dia}, acc ->
+      horario = horario
+      |> Tuple.to_list
+      |> Enum.reduce([], fn time_movie, acc ->
+        if String.match?(time_movie, ~r/\d\dh(\d\dm?)?/) do
+          [time_movie|acc]
+        else
+          case acc do
+            [time] ->
+              [%{time: time, movie: time_movie}]
+            [time|acc] ->
+              [%{time: time, movie: time_movie}|acc]
+            _ -> []
+          end
+        end
+      end)
+      |> reverse
       Map.merge(acc, %{dia => horario}) end)
     |> IO.inspect
 

@@ -1,13 +1,15 @@
 <.flash_group flash={@flash} />
-<%= for day <- @days do %>
-    <h1><%= day %></h1>
-    <%= for {time_movie, idx} <- Enum.with_index(Tuple.to_list(@schedule[day])) do %>
-        <%= if rem(idx, 2) == 0 do %>
-        <span><%= time_movie %></span>
-        <% end %>
-        <%= if rem(idx, 2) == 1 do %>
-        <.link href={@movie_list[time_movie]}><%= time_movie %></.link>
-        <br/>
-        <% end %>
-    <% end %>
-<% end %>
+<div class="grid grid-flow-col grid-rows-6 bg-zinc-100">
+  <h1 class="bg-black text-5xl font-bold text-white col-span-6 pl-7 pt-10">Derby</h1>
+  <%= for {day, day_number} <- Enum.with_index(@days) do %>
+      <h2 class="font-bold text-2xl bg-black text-white p-3"><%= day %></h2>
+      <%= for time_movie <- @schedule[day] do %>
+          <div class={if rem(day_number, 2) == 1 do "bg-zinc-300 p-3" else "bg-zinc-100 border-t-2 border-black p-3 pt-2.5" end}>
+            <span class="font-bold text-2xl block"><%= time_movie[:time] %></span>
+            <.link href={@movie_list[time_movie[:movie]]}>
+              <%= time_movie[:movie] %>
+            </.link>
+          </div>
+      <% end %>
+  <% end %>
+</div>
