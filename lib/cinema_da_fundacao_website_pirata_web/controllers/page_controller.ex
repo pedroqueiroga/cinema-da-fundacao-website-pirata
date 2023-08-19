@@ -163,7 +163,13 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
       Map.merge(acc, %{dia => horario}) end)
   end
 
-  def home(conn, %{"cinema" => cinema}) do
+  def home(conn, params \\ %{"cinema" => "porto"}) do
+    cinema = case params do
+               %{"cinema" => ""} -> "derby"
+               %{"cinema" => nil} -> "porto"
+               %{"cinema" => cinema} -> cinema
+               _ -> "porto"
+             end
     # get movie list
     movie_list =
       case HTTPoison.get("https://cinemadafundacao.com.br/filmes-2/") do
