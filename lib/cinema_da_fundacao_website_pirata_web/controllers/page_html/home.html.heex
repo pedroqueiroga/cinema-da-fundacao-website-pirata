@@ -1,6 +1,6 @@
 <.flash_group flash={@flash} />
-<div class="grid grid-flow-col grid-rows-6 bg-zinc-100">
-  <h1 class="bg-black text-5xl font-bold text-white col-span-6 pl-7 pt-10">Derby</h1>
+<div class={"grid grid-flow-col grid-rows-#{2+length(@schedule[Enum.at(@days, 0)])} bg-zinc-100"}>
+  <h1 class="bg-black text-5xl font-bold text-white col-span-6 pl-7 pt-10 capitalize"><%= @cinema %></h1>
   <%= for {day, day_number} <- Enum.with_index(@days) do %>
       <h2 class="font-bold text-2xl bg-black text-white p-3"><%= day %></h2>
       <%= for time_movie <- @schedule[day] do %>
