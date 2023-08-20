@@ -194,9 +194,10 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
 
     days = ["QUI", "SEX", "SAB", "DOM", "TER", "QUA"]
     schedule = scan_schedule(days, movie_list, cinema)
+    row_number = 2 + length(schedule[Enum.at(days, 0)])
 
     # The home page is often custom made,
     # so skip the default app layout.
-    render(conn, :home, layout: false, schedule: schedule, days: days, movie_list: movie_list, cinema: cinema, other_cinemas: Enum.filter(@supported_cinemas, fn s_c -> cinema !== s_c end))
+    render(conn, :home, layout: false, schedule: schedule, days: days, movie_list: movie_list, cinema: cinema, other_cinemas: Enum.filter(@supported_cinemas, fn s_c -> cinema !== s_c end), row_number: row_number)
   end
 end
