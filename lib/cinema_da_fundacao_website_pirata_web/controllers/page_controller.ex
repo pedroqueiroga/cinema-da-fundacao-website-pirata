@@ -192,7 +192,7 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
           IO.inspect reason
       end
 
-    days = ["QUI", "SEX", "SAB", "DOM", "TER", "QUA"]
+    days = ["QUI", "SEX", "SÁB", "DOM", "TER", "QUA"]
     schedule = scan_schedule(days, movie_list, cinema)
     row_number = 2 + length(schedule[Enum.at(days, 0)])
 

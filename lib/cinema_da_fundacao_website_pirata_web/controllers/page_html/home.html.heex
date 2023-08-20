@@ -1,10 +1,17 @@
 <.flash_group flash={@flash} />
-<div class={"grid grid-flow-col grid-rows-#{@row_number} bg-zinc-100"} style={"grid-template-rows: repeat(#{@row_number}, minmax(0, 1fr))"}>
-  <div class="bg-black text-white col-span-6 pl-7 pt-10">
-    <h1 class="text-5xl font-bold capitalize inline"><%= @cinema %></h1>
-    <%= for other_cinema <- @other_cinemas do %>
-        | <.link href={"/?cinema=#{other_cinema}"} class="inline capitalize hover:font-bold"><%= other_cinema %></.link>
-    <% end %>
+<div class={"grid grid-flow-col grid-rows-#{@row_number} bg-zinc-100"}
+     style={"grid-template-rows: repeat(#{@row_number}, minmax(0, 1fr))"}>
+  <div class="bg-black text-white col-span-6 px-7 pt-10 flex items-center">
+    <div>
+      <h1 class="text-5xl font-bold capitalize inline"><%= @cinema %></h1>
+      <%= for other_cinema <- @other_cinemas do %>
+          | <.link href={"/?cinema=#{other_cinema}"} class="inline capitalize hover:font-bold"><%= other_cinema %></.link>
+          <% end %>
+    </div>
+    <div class="ml-auto">
+      <img src="/images/lulu-da-pomerania.png"
+           class="object-contain h-20">
+    </div>
   </div>
   <%= for {day, day_number} <- Enum.with_index(@days) do %>
       <h3 class="font-bold text-2xl bg-black text-white p-3"><%= day %></h3>
