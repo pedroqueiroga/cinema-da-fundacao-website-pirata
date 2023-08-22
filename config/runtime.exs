@@ -62,6 +62,15 @@ if config_env() == :prod do
       ip: {0, 0, 0, 0, 0, 0, 0, 0},
       port: port
     ],
+    https: [
+      port: 443,
+      cipher_suite: :strong,
+      otp_app: :cinema_da_fundacao_website_pirata,
+      keyfile: "priv/ssl/privkey.pem",
+      certfile: "priv/ssl/cinemadafundacao.org.crt"
+      # OPTIONAL Key for intermediate certificates:
+      # cacertfile: System.get_env("INTERMEDIATE_CERTFILE_PATH")
+    ],
     secret_key_base: secret_key_base
 
   # ## SSL Support
