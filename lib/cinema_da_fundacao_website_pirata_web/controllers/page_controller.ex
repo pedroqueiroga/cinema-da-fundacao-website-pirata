@@ -20,8 +20,10 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
 
   def candidates(movie_list, str, strong_normalize \\ false) do
     str = normalize_str(str, strong_normalize)
+    |> IO.inspect(label: "normalized str")
     Enum.reduce(movie_list, [], fn movie, acc ->
       down_cased_movie = normalize_str(movie, strong_normalize)
+      |> IO.inspect(label: "down cased movie")
       if String.starts_with?(down_cased_movie, str) do
         [%{movie: movie, jaro: String.jaro_distance(down_cased_movie, str)} | acc]
       else
@@ -87,6 +89,7 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
         end
       [feet|body] ->
         {feet_candidates, considered_value_candidates} = {candidates(movie_list, feet), candidates(movie_list, "#{feet} #{v}")}
+        |> IO.inspect(label: "before retrying feet")
         feet_candidates = case feet_candidates do
                             [] -> candidates(movie_list, feet, true)
                             _ -> feet_candidates
@@ -97,6 +100,7 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
                                       end
 
         {c_diff, most_powerful_candidate} = candidates_diff(feet_candidates, considered_value_candidates)
+        IO.inspect(%{c_diff: c_diff, most_powerful_candidate: most_powerful_candidate, feet_candidates: feet_candidates, considered_value_candidates: considered_value_candidates, feet: feet, body: body, acc: acc, v: v})
         cond do
           c_diff < 0 or (c_diff == nil and most_powerful_candidate.jaro > 0.5) ->
             reverse([v|[most_powerful_candidate.movie|body]])
@@ -118,7 +122,9 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
       splitted
     else
       grouped_tokens = Enum.reduce(splitted, [], fn v, acc -> group_str(movie_list, v, acc) end)
+      |> IO.inspect(label: "grouped_tokens")
       last_token = List.last(grouped_tokens)
+      |> IO.inspect(label: "last_token")
       if Enum.member?(movie_list, last_token) == false do
         case most_powerful_candidate(candidates(movie_list, last_token)) do
           nil -> grouped_tokens
@@ -141,11 +147,14 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
     TesseractOcr.read(image_path(cinema), %{lang: "por", psm: 4})
     |> String.split("\n")
     |> Enum.filter(fn v -> String.trim(v) |> String.length > 0 end)
+    |> IO.inspect(label: "after trim+length filter")
     |> Enum.map(fn v ->
       formatted_movie_list = Enum.into(movie_list, [], fn {k,_v} -> k end)
       v
+      |> IO.inspect(label: "formatted_movie_list")
       |> tokenize(formatted_movie_list)
     end)
+    |> IO.inspect(label: "tokenized formatted_movie_list")
     |> Enum.filter(fn line -> Kernel.length(line) > 1 end)
     |> Enum.zip
     |> Enum.zip(days)
@@ -191,13 +200,36 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
         {:error, %HTTPoison.Error{reason: reason}} ->
           IO.inspect reason
       end
+      # gambiarra pq o cinema da fundacao apagou as paginas
+      |> Map.merge(%{"Sessão Chama Curtas" => "", "Uma Nega Chamada Tereza" => "", "Retratos Fantasmas" => ""})
+      |> IO.inspect(label: "movie_list")
 
     days = ["QUI", "SEX", "SÁB", "DOM", "TER", "QUA"]
     schedule = scan_schedule(days, movie_list, cinema)
     row_number = 2 + length(schedule[Enum.at(days, 0)])
 
+    IO.inspect(schedule)
+
+    {:ok, today_date} = DateTime.now("America/Recife")
+
+    today_day_of_week = Date.day_of_week(today_date)
+    other_cinemas = Enum.filter(@supported_cinemas, fn s_c ->
+      cinema !== s_c
+    end)
+
     # The home page is often custom made,
     # so skip the default app layout.
-    render(conn, :home, layout: false, schedule: schedule, days: days, movie_list: movie_list, cinema: cinema, other_cinemas: Enum.filter(@supported_cinemas, fn s_c -> cinema !== s_c end), row_number: row_number)
+    render(
+      conn,
+      :home,
+      layout: false,
+      schedule: schedule,
+      days: days,
+      movie_list: movie_list,
+      cinema: cinema,
+      other_cinemas: other_cinemas,
+      row_number: row_number,
+      today: today_day_of_week
+    )
   end
 end

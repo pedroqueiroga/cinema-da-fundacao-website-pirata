@@ -51,7 +51,8 @@ defmodule CinemaDaFundacaoWebsitePirata.MixProject do
       {:plug_cowboy, "~> 2.5"},
       {:tesseract_ocr, "~> 0.1.5"},
       {:floki, "~> 0.34.0"},
-      {:httpoison, "~> 2.0"}
+      {:httpoison, "~> 2.0"},
+      {:tzdata, "~> 1.1"}
     ]
   end
 
