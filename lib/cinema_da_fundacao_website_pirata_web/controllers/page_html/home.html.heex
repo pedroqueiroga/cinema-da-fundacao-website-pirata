@@ -23,14 +23,14 @@
             (hoje)
           </span>
           <% end %>
-          <span class="font-bold block text-2xl"><%= day %></span>
+          <h3 class="font-bold block text-2xl"><%= day %></h3>
           <span class="font-bold block pt-4"><%= day_month %></span>
         </div>
       </div>
       <%= for time_movie <- @schedule[day] do %>
-          <div class={if rem(day_number, 2) == 1 do "bg-zinc-300 p-3" else "bg-zinc-100 border-t-2 border-black p-3 pt-2.5" end}>
+          <div class={"p-3 overflow-hidden #{if rem(day_number, 2) == 1 do "bg-zinc-300" else "bg-zinc-100 border-t-2 border-black pt-2.5" end}"}>
             <h4 class="font-bold text-2xl block"><%= time_movie[:time] %></h4>
-            <.link href={@movie_list[time_movie[:movie]]}>
+            <.link class="hover:font-bold" href={@movie_list[time_movie[:movie]]}>
               <%= time_movie[:movie] %>
             </.link>
           </div>
