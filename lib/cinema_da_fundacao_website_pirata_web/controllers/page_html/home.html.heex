@@ -1,6 +1,6 @@
 <.flash_group flash={@flash} />
-<div class={"grid grid-flow-col grid-rows-#{@row_number} bg-zinc-100"}
-     style={"grid-template-rows: repeat(#{@row_number}, minmax(0, 1fr))"}>
+<div class={"grid grid-flow-col bg-zinc-100"}
+     style={"grid-template-rows: auto auto repeat(#{@row_number - 2}, minmax(0, 1fr))"}>
   <div class="bg-black text-white col-span-6 px-7 pt-10 flex items-center">
     <div>
       <h1 class="text-5xl font-bold capitalize inline"><%= @cinema %></h1>
@@ -13,18 +13,19 @@
            class="object-contain h-20">
     </div>
   </div>
-  <%= for {day, day_number} <- Enum.with_index(@days) do %>
+  <%= for {{day, day_month}, day_number} <- Enum.with_index(Enum.zip(@days, @day_month_list)) do %>
       <div class="bg-black p-3">
-        <span class="relative text-white">
+        <div class="flex flex-col relative text-white">
           <%= if ((@today == 2 || @today == 3) && (@today == rem(day_number+5, 7)))
               || ((@today == 0 || @today > 3) && (@today == rem(day_number+4, 7)))
           do %>
-          <span class="w-full text-center text-sm font-light absolute bottom-7">
+          <span class="text-sm font-light absolute top-[-1rem]">
             (hoje)
           </span>
           <% end %>
-          <span class="font-bold text-2xl"><%= day %></span>
-        </span>
+          <span class="font-bold block text-2xl"><%= day %></span>
+          <span class="font-bold block pt-4"><%= day_month %></span>
+        </div>
       </div>
       <%= for time_movie <- @schedule[day] do %>
           <div class={if rem(day_number, 2) == 1 do "bg-zinc-300 p-3" else "bg-zinc-100 border-t-2 border-black p-3 pt-2.5" end}>

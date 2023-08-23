@@ -212,6 +212,20 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
 
     {:ok, today_date} = DateTime.now("America/Recife")
 
+    begin_of_week = Date.beginning_of_week(today_date, :sunday)
+    day_month_list = Enum.concat(-3..0, [2, 3])
+    |> Enum.map(fn v ->
+      date = Date.add(begin_of_week, v)
+      padded_day = date.day
+      |> Integer.to_string
+      |> String.pad_leading(2, "0")
+
+      padded_month = date.month
+      |> Integer.to_string
+      |> String.pad_leading(2, "0")
+
+      "#{padded_day}/#{padded_month}"
+    end)
     today_day_of_week = Date.day_of_week(today_date)
     other_cinemas = Enum.filter(@supported_cinemas, fn s_c ->
       cinema !== s_c
@@ -229,7 +243,8 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
       cinema: cinema,
       other_cinemas: other_cinemas,
       row_number: row_number,
-      today: today_day_of_week
+      today: today_day_of_week,
+      day_month_list: day_month_list
     )
   end
 end
