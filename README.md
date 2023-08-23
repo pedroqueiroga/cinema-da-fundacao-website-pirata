@@ -1,8 +1,8 @@
 # CinemaDaFundacaoWebsitePirata
-Versão pirata do cinemadafundacao.com.br.
+Versão pirata do cinemadafundacao.com.br, disponível em [cinemadafundacao.org](https://cinemadafundacao.org).
 
 ## Objetivo principal
-Montar um outro site mais amigável para hypermidia, usando elementos HTML interativos em vez de uma imagem para exibir a programação.
+Montar um outro site mais amigável para hypermedia, usando elementos HTML interativos em vez de uma imagem para exibir a programação.
 
 ## Desafio principal
 As informações não foram feitas para acesso automatizado, por exemplo aparecendo apenas em imagens. 
