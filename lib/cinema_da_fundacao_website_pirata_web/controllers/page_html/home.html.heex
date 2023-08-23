@@ -27,11 +27,11 @@
           <span class="font-bold block pt-4"><%= day_month %></span>
         </div>
       </div>
-      <%= for time_movie <- @schedule[day] do %>
-          <div class={"p-3 overflow-hidden #{if rem(day_number, 2) == 1 do "bg-zinc-300" else "bg-zinc-100 border-t-2 border-black pt-2.5" end}"}>
-            <h4 class="font-bold text-2xl block"><%= time_movie[:time] %></h4>
-            <.link class="hover:font-bold" href={@movie_list[time_movie[:movie]]}>
-              <%= time_movie[:movie] %>
+      <%= for %{time: time, movie: movie, is_past: is_past} <- @schedule[day] do %>
+          <div class={"p-3 overflow-hidden #{if rem(day_number, 2) == 1 do "bg-zinc-300" else "bg-zinc-100 border-t-2 border-black pt-2.5" end} #{if is_past do "text-slate-400" end}"}>
+            <h4 class="font-bold text-2xl block"><%= time %></h4>
+            <.link class="hover:font-bold" href={@movie_list[movie]}>
+              <%= movie %>
             </.link>
           </div>
       <% end %>

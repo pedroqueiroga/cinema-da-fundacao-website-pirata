@@ -143,7 +143,9 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
     Application.app_dir(:cinema_da_fundacao_website_pirata, "priv/static/images/Progamacao-geral_#{cinema}.png")
   end
 
-  def scan_schedule(days, movie_list, cinema) do
+  @hour_regex ~r/(\d\d)h(\d(?:\d|o)m?)?/
+
+  def scan_schedule({days, dates}, movie_list, cinema) do
     TesseractOcr.read(image_path(cinema), %{lang: "por", psm: 4})
     |> String.split("\n")
     |> Enum.filter(fn v -> String.trim(v) |> String.length > 0 end)
@@ -158,24 +160,45 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
     |> Enum.filter(fn line -> Kernel.length(line) > 1 end)
     |> Enum.zip
     |> Enum.zip(days)
-    |> Enum.reduce(%{}, fn {horario, dia}, acc ->
-      horario = horario
+    |> Enum.zip(dates)
+    |> Enum.reduce(%{}, fn {{time, day}, movie_date}, acc ->
+      time_with_movie = time
       |> Tuple.to_list
       |> Enum.reduce([], fn time_movie, acc ->
-        if String.match?(time_movie, ~r/\d\dh(\d(\d|o)m?)?/) do
+        if String.match?(time_movie, @hour_regex) do
           [time_movie|acc]
         else
+          [time|_] = acc
+          {:ok, movie_time_struct} = case Regex.run(@hour_regex, String.replace(time, "o", "0")) do
+                                 [_, hh, mm] -> Time.new(String.to_integer(hh), String.to_integer(mm), 00)
+                                 [_, hh] -> Time.new(String.to_integer(hh), 00, 00)
+                               end
+          {:ok, movie_date_time} = DateTime.new(
+            movie_date,
+            movie_time_struct,
+            "America/Recife"
+          )
           case acc do
             [time] ->
-              [%{time: time, movie: time_movie}]
+              [%{time: time, movie: time_movie, is_past: is_past_date(movie_date_time)}]
             [time|acc] ->
-              [%{time: time, movie: time_movie}|acc]
+              [%{time: time, movie: time_movie, is_past: is_past_date(movie_date_time)}|acc]
             _ -> []
           end
         end
       end)
       |> reverse
-      Map.merge(acc, %{dia => horario}) end)
+      Map.merge(acc, %{day => time_with_movie})
+    end)
+  end
+
+  def is_past_date(date) do
+    DateTime.compare(get_datetime_now(), date) != :lt
+  end
+
+  def get_datetime_now() do
+    {:ok, now} = DateTime.now("America/Recife")
+    now
   end
 
   def home(conn, params \\ %{"cinema" => "porto"}) do
@@ -204,16 +227,10 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
       |> Map.merge(%{"Sessão Chama Curtas" => "", "Uma Nega Chamada Tereza" => "", "Retratos Fantasmas" => ""})
       |> IO.inspect(label: "movie_list")
 
-    days = ["QUI", "SEX", "SÁB", "DOM", "TER", "QUA"]
-    schedule = scan_schedule(days, movie_list, cinema)
-    row_number = 2 + length(schedule[Enum.at(days, 0)])
-
-    IO.inspect(schedule)
-
-    {:ok, today_date} = DateTime.now("America/Recife")
+    today_date = get_datetime_now()
 
     begin_of_week = Date.beginning_of_week(today_date, :sunday)
-    day_month_list = Enum.concat(-3..0, [2, 3])
+    {dates, day_month_list} = Enum.concat(-3..0, [2, 3])
     |> Enum.map(fn v ->
       date = Date.add(begin_of_week, v)
       padded_day = date.day
@@ -224,8 +241,16 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
       |> Integer.to_string
       |> String.pad_leading(2, "0")
 
-      "#{padded_day}/#{padded_month}"
+      {date, "#{padded_day}/#{padded_month}"}
     end)
+    |> Enum.unzip
+
+    days = ["QUI", "SEX", "SÁB", "DOM", "TER", "QUA"]
+    schedule = scan_schedule({days, dates}, movie_list, cinema)
+    row_number = 2 + length(schedule[Enum.at(days, 0)])
+
+    IO.inspect(schedule)
+
     today_day_of_week = Date.day_of_week(today_date)
     other_cinemas = Enum.filter(@supported_cinemas, fn s_c ->
       cinema !== s_c
