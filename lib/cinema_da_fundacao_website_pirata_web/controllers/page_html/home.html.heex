@@ -1,6 +1,6 @@
 <.flash_group flash={@flash} />
-<div class={"grid grid-flow-col bg-zinc-100"}
-     style={"grid-template-rows: auto auto repeat(#{@row_number - 2}, minmax(0, 1fr)); grid-template-columns: repeat(#{length(@days)}, minmax(6rem, 1fr)"}>
+<div class={"h-screen w-screen max-w-4xl mx-auto grid grid-flow-col bg-zinc-100"}
+     style={"grid-template-rows: auto auto repeat(#{@row_number - 2}, minmax(9rem, 1fr)); grid-template-columns: repeat(#{length(@days)}, minmax(6rem, 1fr)"}>
   <div class="bg-black text-white col-span-6 px-7 pt-10 flex items-center">
     <div>
       <h1 class="text-5xl font-bold capitalize inline"><%= @cinema %></h1>
