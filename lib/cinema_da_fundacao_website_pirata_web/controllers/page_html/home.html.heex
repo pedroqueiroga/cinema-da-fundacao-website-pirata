@@ -1,6 +1,6 @@
 <.flash_group flash={@flash} />
 <div class={"grid grid-flow-col bg-zinc-100"}
-     style={"grid-template-rows: auto auto repeat(#{@row_number - 2}, minmax(0, 1fr))"}>
+     style={"grid-template-rows: auto auto repeat(#{@row_number - 2}, minmax(0, 1fr)); grid-template-columns: repeat(#{length(@days)}, minmax(6rem, 1fr)"}>
   <div class="bg-black text-white col-span-6 px-7 pt-10 flex items-center">
     <div>
       <h1 class="text-5xl font-bold capitalize inline"><%= @cinema %></h1>
@@ -30,7 +30,7 @@
       <%= for %{time: time, movie: movie, is_past: is_past} <- @schedule[day] do %>
           <div class={"p-3 overflow-hidden #{if rem(day_number, 2) == 1 do "bg-zinc-300" else "bg-zinc-100 border-t-2 border-black pt-2.5" end} #{if is_past do "text-slate-400" end}"}>
             <h4 class="font-bold text-2xl block"><%= time %></h4>
-            <.link class="hover:font-bold" href={@movie_list[movie]}>
+            <.link class="hover:font-bold mx-0.5 mb-0.5" href={@movie_list[movie]}>
               <%= movie %>
             </.link>
           </div>

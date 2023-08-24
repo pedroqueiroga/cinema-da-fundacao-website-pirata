@@ -1,7 +1,7 @@
 defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
   use CinemaDaFundacaoWebsitePirataWeb, :controller
 
-  @supported_cinemas ["porto", "derby"]
+  @supported_cinemas ["porto", "derby", "museu"]
 
   def reverse(l) do
     case l do
@@ -12,10 +12,15 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
   end
 
   def normalize_str(str, strong \\ false) do
-    String.downcase(str)
+    normalized_str = String.downcase(str)
     |> String.replace(~r/[[:punct:]]/u, " ")
     |> String.replace(~r/ +/, if strong == true do "" else " " end)
     |> String.trim
+    if strong do
+      Unicode.Transform.LatinAscii.transform(normalized_str)
+    else
+      normalized_str
+    end
   end
 
   def candidates(movie_list, str, strong_normalize \\ false) do
@@ -131,8 +136,6 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
     end
   end
 
-  # def image_path("porto"), do: ~p"/images/Progamacao-geral_porto.png"
-  # def image_path("derby"), do: "/images/Progamacao-geral_derby.png"
   def image_path(cinema) do
     Application.app_dir(:cinema_da_fundacao_website_pirata, "priv/static/images/Progamacao-geral_#{cinema}.png")
   end
@@ -160,15 +163,8 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
           [time_movie|acc]
         else
           [time|_] = acc
-          {:ok, movie_time_struct} = case Regex.run(@hour_regex, String.replace(time, "o", "0")) do
-                                 [_, hh, mm] -> Time.new(String.to_integer(hh), String.to_integer(mm), 00)
-                                 [_, hh] -> Time.new(String.to_integer(hh), 00, 00)
-                               end
-          {:ok, movie_date_time} = DateTime.new(
-            movie_date,
-            movie_time_struct,
-            "America/Recife"
-          )
+          {:ok, movie_time_struct} = get_time_struct(time)
+          {:ok, movie_date_time} = get_datetime(movie_date, movie_time_struct)
           case acc do
             [time] ->
               [%{time: time, movie: time_movie, is_past: is_past_date(movie_date_time)}]
@@ -183,6 +179,24 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
     end)
   end
 
+  def get_time_struct(nil) do nil end
+  def get_time_struct(movie_time) do
+    case Regex.run(@hour_regex, String.replace(movie_time, "o", "0")) do
+      [_, hh, mm] -> Time.new(String.to_integer(hh), String.to_integer(mm), 00)
+      [_, hh] -> Time.new(String.to_integer(hh), 00, 00)
+    end
+  end
+
+  def get_datetime(date, time_struct) do
+    DateTime.new(
+      date,
+      time_struct,
+      "America/Recife"
+    )
+  end
+
+
+  def is_past_date(nil) do nil end
   def is_past_date(date) do
     DateTime.compare(get_datetime_now(), date) != :lt
   end
@@ -190,6 +204,75 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
   def get_datetime_now() do
     {:ok, now} = DateTime.now("America/Recife")
     now
+  end
+
+  def get_current_movie_week() do
+    begin_of_week = get_datetime_now()
+    |> Date.beginning_of_week(:thursday)
+
+    Enum.concat(0..3, [5,6])
+    |> Enum.map(fn v -> Date.add(begin_of_week, v) end)
+  end
+
+  def get_date_from_word(current_movie_week, word) do
+    Enum.find(fn date ->
+      date.day == String.to_integer(String.slice(word, 0..1))
+    end)
+  end
+
+  def word_to_date(week, word) do
+    Enum.find(
+      week,
+      fn date ->
+        date.day == String.to_integer(String.slice(word, 0..1))
+      end)
+  end
+
+  def columns_x_start(words) do
+    current_movie_week = get_current_movie_week()
+    arr = words
+    |> Enum.filter(fn %{word: w} -> String.match?(w, @hour_regex) end)
+    |> Enum.reduce([], fn %{x_start: x_start}, acc ->
+      case acc do
+        [] -> [x_start]
+        _ ->
+          # find index of an element that is very close to x_start
+          idx = Enum.find_index(acc, fn v -> abs(x_start - v) < 20 end)
+          if idx != nil do
+            List.replace_at(acc, idx, div(Enum.at(acc, idx) + x_start, 2))
+          else
+            [x_start | acc]
+          end
+      end
+    end)
+    |> Enum.reverse
+  end
+
+  def rows_y_start(words) do
+    words
+    |> Enum.filter(fn %{word: w} -> String.match?(w, @hour_regex) end)
+    |> Enum.reduce([], fn %{y_start: y_start}, acc ->
+      case acc do
+        [] -> [y_start]
+        [y | ys] ->
+          if abs(y - y_start) < 20 do
+            [div((y + y_start), 2) | ys]
+          else
+            [y_start | acc]
+          end
+      end
+    end)
+    |> Enum.reverse
+  end
+
+  def tesseract_words(cinema) do
+    TesseractOcr.Words.read(
+      "priv/static/images/Progamacao-geral_#{cinema}-2.png",
+      %{lang: "por", psm: 4, c: "preserve_interword_spaces=1"}
+    )
+    |> Enum.filter(fn %{confidence: confidence} ->
+      confidence > 35
+    end)
   end
 
   def home(conn, params \\ %{"cinema" => "porto"}) do
@@ -214,16 +297,12 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
         {:error, %HTTPoison.Error{reason: reason}} ->
           IO.inspect reason
       end
-      # gambiarra pq o cinema da fundacao apagou as paginas
-      |> Map.merge(%{"Sessão Chama Curtas" => "", "Uma Nega Chamada Tereza" => "", "Retratos Fantasmas" => ""})
       |> IO.inspect(label: "movie_list")
 
     today_date = get_datetime_now()
 
-    begin_of_week = Date.beginning_of_week(today_date, :sunday)
-    {dates, day_month_list} = Enum.concat(-3..0, [2, 3])
-    |> Enum.map(fn v ->
-      date = Date.add(begin_of_week, v)
+    {dates, day_month_list} = get_current_movie_week()
+    |> Enum.map(fn date ->
       padded_day = date.day
       |> Integer.to_string
       |> String.pad_leading(2, "0")
@@ -237,10 +316,112 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
     |> Enum.unzip
 
     days = ["QUI", "SEX", "SÁB", "DOM", "TER", "QUA"]
-    schedule = scan_schedule({days, dates}, movie_list, cinema)
-    row_number = 2 + length(schedule[Enum.at(days, 0)])
+    #schedule = scan_schedule({days, dates}, movie_list, cinema)
+    #row_number = 2 + length(schedule[Enum.at(days, 0)])
 
-    IO.inspect(schedule)
+    words = tesseract_words(cinema)
+    |> IO.inspect(label: "words", limit: :infinity)
+
+    columns_x_start = words
+    |> columns_x_start
+    |> IO.inspect(label: "columns x start")
+
+    rows_y_start = words
+    |> rows_y_start
+    |> IO.inspect(label: "rows y start")
+
+    schedule_matrix = Enum.reduce(columns_x_start, %{}, fn column, acc_x ->
+      Map.merge(acc_x, %{column => Enum.reduce(rows_y_start, %{}, fn y_start, acc_y ->
+                            Map.merge(acc_y, %{y_start => %{time: nil, movie: nil}})
+                          end)}
+      )
+    end)
+#    |> IO.inspect
+
+    new_schedule = words
+    |> Enum.reduce(schedule_matrix, fn slot_candidate, acc ->
+#      IO.inspect(slot_candidate)
+      row_index =
+        Enum.find(
+          0..length(rows_y_start)-1,
+          fn i ->
+            yt = Enum.at(rows_y_start, i)
+            yb = if i < (length(rows_y_start) - 1) do
+              Enum.at(rows_y_start, i+1)
+            else
+              yt + abs(yt - Enum.at(rows_y_start, i-1))
+            end
+            slot_candidate.y_start < (yb - 15) && slot_candidate.y_start >= (yt - 15)
+          end
+        )
+#        |> IO.inspect(label: "row")      
+
+      col_index =
+        Enum.find(
+          0..length(columns_x_start)-1,
+          fn i ->
+            xl = Enum.at(columns_x_start, i)
+            xr = if i < (length(columns_x_start) - 1) do
+              Enum.at(columns_x_start, i+1)
+            else
+              xl + abs(xl - Enum.at(columns_x_start, i-1))
+            end
+            slot_candidate.x_start < (xr - 20) && slot_candidate.x_start > (xl - 20)
+          end
+        )
+#        |> IO.inspect(label: "col")
+      
+      if row_index != nil && col_index != nil do
+        row = Enum.at(rows_y_start, row_index)
+        col = Enum.at(columns_x_start, col_index)
+
+        IO.inspect({row, col}, label: "best_row and best_col")
+        word = slot_candidate.word
+        new_item = if String.match?(word, @hour_regex) do
+          Map.merge(acc[col][row], %{time: word})
+        else
+          movie = acc[col][row][:movie] || ""
+          Map.merge(acc[col][row], %{movie: String.trim("#{movie} #{word}")})
+        end
+        Map.replace(acc, col,
+          Map.replace(acc[col], row, new_item)
+        )
+      else
+        acc
+      end
+    end)
+    |> IO.inspect
+    |> Enum.zip(Enum.zip(["QUI", "SEX", "SÁB", "DOM", "TER", "QUA"], get_current_movie_week()))
+    |> IO.inspect(label: "zipped")
+    |>
+    Enum.reduce(
+      %{},
+      fn {{col, rows}, {day, date}}, acc ->
+        rows =
+          Enum.map(rows, fn {_, %{time: time, movie: movie}} ->
+            movie_datetime =
+              case get_time_struct(time) do
+                {:ok, time_struct} ->
+                  case get_datetime(date, time_struct) do
+                    {:ok, movie_datetime} -> movie_datetime
+                    _-> nil
+                  end
+                _ -> nil
+              end
+            movie =
+              case most_powerful_candidate(candidates(Enum.map(movie_list, fn {movie, href} -> movie end), movie, true)) do
+                %{movie: candidate_movie} -> candidate_movie
+                nil -> movie
+              end
+            %{is_past: is_past_date(movie_datetime), time: time, movie: movie}
+          end)
+        Map.merge(acc, %{day => rows})
+      end)
+      |> IO.inspect(label: "new schedule")
+
+    
+
+    row_number = 2 + length(new_schedule[Enum.at(days, 0)])
 
     today_day_of_week = Date.day_of_week(today_date)
     other_cinemas = Enum.filter(@supported_cinemas, fn s_c ->
@@ -253,7 +434,7 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
       conn,
       :home,
       layout: false,
-      schedule: schedule,
+      schedule: new_schedule,
       days: days,
       movie_list: movie_list,
       cinema: cinema,

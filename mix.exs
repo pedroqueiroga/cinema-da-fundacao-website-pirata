@@ -52,7 +52,8 @@ defmodule CinemaDaFundacaoWebsitePirata.MixProject do
       {:tesseract_ocr, "~> 0.1.5"},
       {:floki, "~> 0.34.0"},
       {:httpoison, "~> 2.0"},
-      {:tzdata, "~> 1.1"}
+      {:tzdata, "~> 1.1"},
+      {:unicode_transform, "~> 0.3.0"}
     ]
   end
 
