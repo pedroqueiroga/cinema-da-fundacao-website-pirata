@@ -267,7 +267,7 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
 
   def tesseract_words(cinema) do
     TesseractOcr.Words.read(
-      "priv/static/images/Progamacao-geral_#{cinema}-2.png",
+      image_path("#{cinema}-2"),
       %{lang: "por", psm: 4, c: "preserve_interword_spaces=1"}
     )
     |> Enum.filter(fn %{confidence: confidence} ->
