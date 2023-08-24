@@ -320,7 +320,7 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
     #row_number = 2 + length(schedule[Enum.at(days, 0)])
 
     words = tesseract_words(cinema)
-    |> IO.inspect(label: "words", limit: :infinity)
+    |> IO.inspect(label: "words")
 
     columns_x_start = words
     |> columns_x_start
