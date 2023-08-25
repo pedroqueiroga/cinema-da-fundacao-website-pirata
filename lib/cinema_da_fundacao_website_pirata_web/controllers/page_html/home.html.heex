@@ -1,13 +1,26 @@
+<style>
+  @media speech {
+      .speech-query-fail::after {
+          display: none
+      }
+  }
+</style>
 <.flash_group flash={@flash} />
-<div class={"h-screen w-screen max-w-4xl mx-auto grid grid-flow-col bg-zinc-100"}
+<div class="h-screen w-screen max-w-4xl mx-auto grid grid-flow-col bg-zinc-100"
      style={"grid-template-rows: auto auto repeat(#{@row_number - 2}, minmax(9rem, 1fr)); grid-template-columns: repeat(#{length(@days)}, minmax(6rem, 1fr)"}>
-  <div class="bg-black text-white col-span-6 px-7 pt-10 flex items-center">
-    <div>
-      <h1 class="text-5xl font-bold capitalize inline"><%= @cinema %></h1>
+  <div class="bg-black text-white col-span-full px-7 pt-10 flex items-center">
+    <ul class="flex items-baseline">
+      <li>
+        <h1 class="text-5xl font-bold capitalize inline"><%= @cinema %></h1>
+      </li>
       <%= for other_cinema <- @other_cinemas do %>
-          | <.link href={"/?cinema=#{other_cinema}"} class="inline capitalize hover:font-bold"><%= other_cinema %></.link>
-          <% end %>
-    </div>
+          <li class="before:whitespace-pre before:content-['_']">| <.link
+                href={"/?cinema=#{other_cinema}"}
+                data-text={"#{other_cinema}"}
+                class="speech-query-fail inline-flex flex-col hover:font-bold after:content-[attr(data-text)] after:font-bold after:invisible after:overflow-hidden after:select-none after:pointer-events-none after:h-0"><%= other_cinema %></.link>
+          </li>
+      <% end %>
+    </ul>
     <div class="ml-auto">
       <img src="/images/lulu-da-pomerania.png"
            class="object-contain h-20">
