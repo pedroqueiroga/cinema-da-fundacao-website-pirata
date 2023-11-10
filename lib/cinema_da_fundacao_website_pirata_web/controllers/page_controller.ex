@@ -265,9 +265,9 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
     |> Enum.reverse
   end
 
-  def tesseract_words(cinema) do
+  def tesseract_words(cinema_image_path) do
     TesseractOcr.Words.read(
-      image_path("#{cinema}-2"),
+      cinema_image_path,
       %{lang: "por", psm: 4, c: "preserve_interword_spaces=1"}
     )
     |> Enum.filter(fn %{confidence: confidence} ->
@@ -282,6 +282,41 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
                %{"cinema" => cinema} -> cinema
                _ -> "porto"
              end
+
+    # get cinema file
+    schedule_png =
+      case HTTPoison.get("https://cinemadafundacao.com.br/") do
+        {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
+          {:ok, document} = Floki.parse_document(body)
+          png_list = Floki.find(document, "#abas")
+          |> Enum.at(1)
+          |> Floki.attribute("div.lsow-tab-pane > p > img.size-full", "src")
+          |> Enum.map(fn image_url ->
+            case HTTPoison.get(image_url) do
+              {:ok, %HTTPoison.Response{status_code: 200, body: image}} ->
+                IO.inspect(image)
+              {:ok, %HTTPoison.Response{status_code: 404}} ->
+                IO.puts "Not found :("
+              {:error, %HTTPoison.Error{reason: reason}} ->
+                IO.inspect reason
+            end
+          end)
+          cinema_list = Floki.find(document, ".lsow-tab-label > .lsow-tab-title")
+          |> Enum.drop(1)
+          |> Enum.map(fn el ->
+            Floki.text(el)
+            |> String.downcase
+          end)
+          |> IO.inspect
+
+          Enum.zip(cinema_list, png_list) |> Enum.into(%{})
+          |> IO.inspect
+        {:ok, %HTTPoison.Response{status_code: 404}} ->
+          IO.puts "Not found :("
+        {:error, %HTTPoison.Error{reason: reason}} ->
+          IO.inspect reason
+      end
+    
     # get movie list
     movie_list =
       case HTTPoison.get("https://cinemadafundacao.com.br/filmes-2/") do
@@ -318,8 +353,12 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
     days = ["QUI", "SEX", "SÁB", "DOM", "TER", "QUA"]
     #schedule = scan_schedule({days, dates}, movie_list, cinema)
     #row_number = 2 + length(schedule[Enum.at(days, 0)])
+    %{^cinema => cinema_image} = schedule_png
 
-    words = tesseract_words(cinema)
+    cinema_image_path = Application.app_dir(:cinema_da_fundacao_website_pirata, "#{cinema}.png")
+    File.write!(cinema_image_path, cinema_image)
+    
+    words = tesseract_words(cinema_image_path)
     |> IO.inspect(label: "words")
 
     columns_x_start = words
@@ -408,11 +447,13 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
                   end
                 _ -> nil
               end
+            movie = movie || "???"
             movie =
               case most_powerful_candidate(candidates(Enum.map(movie_list, fn {movie, href} -> movie end), movie, true)) do
                 %{movie: candidate_movie} -> candidate_movie
                 nil -> movie
               end
+            time = time || "??h??"
             %{is_past: is_past_date(movie_datetime), time: time, movie: movie}
           end)
         Map.merge(acc, %{day => rows})
