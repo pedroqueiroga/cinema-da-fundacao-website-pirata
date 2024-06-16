@@ -1,5 +1,7 @@
 defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
   use CinemaDaFundacaoWebsitePirataWeb, :controller
+  import Ecto.Query
+  require Logger
 
   @supported_cinemas ["porto", "derby", "museu"]
 
@@ -275,6 +277,11 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
     end)
   end
 
+  def get_most_recent_thursday(today_date) do
+    Date.beginning_of_week(today_date, :thursday)
+  end
+  
+
   def home(conn, params \\ %{"cinema" => "porto"}) do
     cinema = case params do
                %{"cinema" => ""} -> "derby"
@@ -283,9 +290,48 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
                _ -> "porto"
              end
 
-    # get cinema file
-    schedule_png =
-      case HTTPoison.get("https://cinemadafundacao.com.br/") do
+    today_date = get_datetime_now()
+    days = ["QUI", "SEX", "SÁB", "DOM", "TER", "QUA"]
+
+    query = Ecto.Query.from(ws in CinemaDaFundacaoWebsitePirata.WeekSchedule,
+      where: ws.cinema == ^cinema,
+      order_by: [desc: ws.inserted_at],
+      limit: 1)
+    most_recent_schedule = CinemaDaFundacaoWebsitePirata.Repo.one(query)
+
+    most_recent_thursday = get_most_recent_thursday(today_date)
+
+    today_day_of_week = Date.day_of_week(today_date)
+
+    other_cinemas = Enum.filter(@supported_cinemas, fn s_c ->
+      cinema !== s_c
+    end)
+
+    {dates, day_month_list} = get_current_movie_week()
+    |> Enum.map(fn date ->
+      padded_day = date.day
+      |> Integer.to_string
+      |> String.pad_leading(2, "0")
+
+      padded_month = date.month
+      |> Integer.to_string
+      |> String.pad_leading(2, "0")
+
+      {date, "#{padded_day}/#{padded_month}"}
+    end)
+    |> Enum.unzip
+    
+    most_recent_schedule = case most_recent_schedule do
+                             nil -> %{inserted_at: ~D[2001-01-01]}
+                             _ -> most_recent_schedule
+                           end
+
+    case Date.compare(most_recent_schedule.inserted_at, most_recent_thursday) do
+      :lt -> # generate new schedule and save to database
+        Logger.info "generating new schedule, first attempt saving to db"  
+        # get cinema filep
+        schedule_png =
+        case HTTPoison.get("https://cinemadafundacao.com.br/") do
         {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
           {:ok, document} = Floki.parse_document(body)
           png_list = Floki.find(document, "#abas")
@@ -307,10 +353,10 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
             Floki.text(el)
             |> String.downcase
           end)
-          |> IO.inspect
+#          |> IO.inspect
 
           Enum.zip(cinema_list, png_list) |> Enum.into(%{})
-          |> IO.inspect
+#          |> IO.inspect
         {:ok, %HTTPoison.Response{status_code: 404}} ->
           IO.puts "Not found :("
         {:error, %HTTPoison.Error{reason: reason}} ->
@@ -332,25 +378,8 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
         {:error, %HTTPoison.Error{reason: reason}} ->
           IO.inspect reason
       end
-      |> IO.inspect(label: "movie_list")
+#      |> IO.inspect(label: "movie_list")
 
-    today_date = get_datetime_now()
-
-    {dates, day_month_list} = get_current_movie_week()
-    |> Enum.map(fn date ->
-      padded_day = date.day
-      |> Integer.to_string
-      |> String.pad_leading(2, "0")
-
-      padded_month = date.month
-      |> Integer.to_string
-      |> String.pad_leading(2, "0")
-
-      {date, "#{padded_day}/#{padded_month}"}
-    end)
-    |> Enum.unzip
-
-    days = ["QUI", "SEX", "SÁB", "DOM", "TER", "QUA"]
     #schedule = scan_schedule({days, dates}, movie_list, cinema)
     #row_number = 2 + length(schedule[Enum.at(days, 0)])
     %{^cinema => cinema_image} = schedule_png
@@ -359,15 +388,15 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
     File.write!(cinema_image_path, cinema_image)
     
     words = tesseract_words(cinema_image_path)
-    |> IO.inspect(label: "words")
+#    |> IO.inspect(label: "words")
 
     columns_x_start = words
     |> columns_x_start
-    |> IO.inspect(label: "columns x start")
+#    |> IO.inspect(label: "columns x start")
 
     rows_y_start = words
     |> rows_y_start
-    |> IO.inspect(label: "rows y start")
+#    |> IO.inspect(label: "rows y start")
 
     schedule_matrix = Enum.reduce(columns_x_start, %{}, fn column, acc_x ->
       Map.merge(acc_x, %{column => Enum.reduce(rows_y_start, %{}, fn y_start, acc_y ->
@@ -414,7 +443,7 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
         row = Enum.at(rows_y_start, row_index)
         col = Enum.at(columns_x_start, col_index)
 
-        IO.inspect({row, col}, label: "best_row and best_col")
+#        IO.inspect({row, col}, label: "best_row and best_col")
         word = slot_candidate.word
         new_item = if String.match?(word, @hour_regex) do
           Map.merge(acc[col][row], %{time: word})
@@ -429,9 +458,9 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
         acc
       end
     end)
-    |> IO.inspect
+#    |> IO.inspect
     |> Enum.zip(Enum.zip(["QUI", "SEX", "SÁB", "DOM", "TER", "QUA"], get_current_movie_week()))
-    |> IO.inspect(label: "zipped")
+#    |> IO.inspect(label: "zipped")
     |>
     Enum.reduce(
       %{},
@@ -458,17 +487,19 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
           end)
         Map.merge(acc, %{day => rows})
       end)
-      |> IO.inspect(label: "new schedule")
-
-    
+#      |> IO.inspect(label: "new schedule")
 
     row_number = 2 + length(new_schedule[Enum.at(days, 0)])
 
-    today_day_of_week = Date.day_of_week(today_date)
-    other_cinemas = Enum.filter(@supported_cinemas, fn s_c ->
-      cinema !== s_c
-    end)
-
+    # saving crucial information to database now
+    
+    CinemaDaFundacaoWebsitePirata.Repo.insert(
+      %CinemaDaFundacaoWebsitePirata.WeekSchedule{
+        week_schedule: Kernel.inspect(new_schedule),
+        week_movie_list: Kernel.inspect(movie_list),
+        cinema: cinema
+      })
+    
     # The home page is often custom made,
     # so skip the default app layout.
     render(
@@ -484,5 +515,28 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
       today: today_day_of_week,
       day_month_list: day_month_list
     )
+
+      :gt -> # * simply display result from database *
+        Logger.info "Simply display result from database"
+        {:ok, quoted_week_schedule} = Code.string_to_quoted(most_recent_schedule.week_schedule)
+        {:ok, quoted_movie_list} = Code.string_to_quoted(most_recent_schedule.week_movie_list)
+        {deserialized_most_recent_schedule,_} = Code.eval_quoted(quoted_week_schedule)
+        {deserialized_movie_list, _} = Code.eval_quoted(quoted_movie_list)
+        Logger.info "inspect movie list #{inspect(deserialized_movie_list)}"
+      row_number = 2 + length(deserialized_most_recent_schedule[Enum.at(days, 0)])
+      render(
+        conn,
+        :home,
+        layout: false,
+        schedule: deserialized_most_recent_schedule,
+        days: days,
+        movie_list: deserialized_movie_list,
+        cinema: most_recent_schedule.cinema,
+        other_cinemas: other_cinemas,
+        row_number: row_number,
+        today: today_day_of_week,
+        day_month_list: day_month_list
+      )
+    end
   end
 end
