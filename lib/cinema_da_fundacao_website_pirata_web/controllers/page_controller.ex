@@ -189,6 +189,13 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
     end
   end
 
+  def get_time_struct!(movie_time) do
+    case Regex.run(@hour_regex, String.replace(movie_time, "o", "0")) do
+      [_, hh, mm] -> Time.new!(String.to_integer(hh), String.to_integer(mm), 00)
+      [_, hh] -> Time.new!(String.to_integer(hh), 00, 00)
+    end
+  end    
+
   def get_datetime(date, time_struct) do
     DateTime.new(
       date,
@@ -483,11 +490,24 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
                 nil -> movie
               end
             time = time || "??h??"
-            %{is_past: is_past_date(movie_datetime), time: time, movie: movie}
+            case movie_datetime do
+              nil -> %{is_past: nil,
+                      day: nil,
+                      month: nil,
+                      year: nil,
+                      time: nil,
+                      movie: nil}
+              _ -> %{is_past: is_past_date(movie_datetime),
+                    day: movie_datetime.day,
+                    month: movie_datetime.month,
+                    year: movie_datetime.year,
+                    time: time,
+                    movie: movie}
+            end
           end)
         Map.merge(acc, %{day => rows})
       end)
-#      |> IO.inspect(label: "new schedule")
+      |> IO.inspect(label: "new schedule")
 
     row_number = 2 + length(new_schedule[Enum.at(days, 0)])
 
@@ -516,13 +536,32 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
       day_month_list: day_month_list
     )
 
-      :gt -> # * simply display result from database *
+      :gt -> 
+        # * get result from database *
         Logger.info "Simply display result from database"
+        Logger.info "inspect week skedul #{inspect(most_recent_schedule.week_schedule)}"
         {:ok, quoted_week_schedule} = Code.string_to_quoted(most_recent_schedule.week_schedule)
         {:ok, quoted_movie_list} = Code.string_to_quoted(most_recent_schedule.week_movie_list)
         {deserialized_most_recent_schedule,_} = Code.eval_quoted(quoted_week_schedule)
         {deserialized_movie_list, _} = Code.eval_quoted(quoted_movie_list)
         Logger.info "inspect movie list #{inspect(deserialized_movie_list)}"
+        Logger.info "inspect movie schedule #{inspect(deserialized_most_recent_schedule)}"
+        # update is_past information
+        Enum.map(deserialized_most_recent_schedule, fn {k, hours} ->
+          {k,
+           Enum.map(hours, fn h ->
+             case h.year do
+               nil -> h
+                 _ -> %{h | is_past: is_past_date(DateTime.new!(
+                             Date.new!(h.year,
+                               h.month,
+                               h.day),
+                             get_time_struct!(h.time), "America/Recife"
+                             ))}
+             end
+           end)
+          }
+        end)
       row_number = 2 + length(deserialized_most_recent_schedule[Enum.at(days, 0)])
       render(
         conn,
