@@ -547,21 +547,22 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
         Logger.info "inspect movie list #{inspect(deserialized_movie_list)}"
         Logger.info "inspect movie schedule #{inspect(deserialized_most_recent_schedule)}"
         # update is_past information
-        Enum.map(deserialized_most_recent_schedule, fn {k, hours} ->
-          {k,
-           Enum.map(hours, fn h ->
-             case h.year do
-               nil -> h
+        deserialized_most_recent_schedule =
+          Enum.into(deserialized_most_recent_schedule, %{}, fn {k, hours} ->
+            {k,
+             Enum.map(hours, fn h ->
+               case h.year do
+                 nil -> h
                  _ -> %{h | is_past: is_past_date(DateTime.new!(
                              Date.new!(h.year,
                                h.month,
                                h.day),
                              get_time_struct!(h.time), "America/Recife"
                              ))}
-             end
-           end)
-          }
-        end)
+               end
+             end)
+            }
+          end)
       row_number = 2 + length(deserialized_most_recent_schedule[Enum.at(days, 0)])
       render(
         conn,
