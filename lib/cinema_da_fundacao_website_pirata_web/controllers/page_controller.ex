@@ -536,7 +536,7 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
       day_month_list: day_month_list
     )
 
-      :gt -> 
+      _ ->
         # * get result from database *
         Logger.info "Simply display result from database"
         Logger.info "inspect week skedul #{inspect(most_recent_schedule.week_schedule)}"
