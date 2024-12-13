@@ -5,6 +5,19 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
 
   @supported_cinemas ["porto", "derby", "museu"]
 
+  def get_day_from_column(words, x) do
+    day = words
+    |> Enum.find(fn %{word: w, x_start: x_start} ->
+      String.match?(w, ~r/(QUI|SEX|SÁB|SAB|DOM|SEG|TER|QUA)/) &&
+        x < x_start && x + 100 > x_start
+    end)
+    if day != nil do
+      Map.get(day, :word)
+    else
+      day
+    end
+  end
+
   def reverse(l) do
     case l do
       [] -> []
@@ -142,7 +155,7 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
     Application.app_dir(:cinema_da_fundacao_website_pirata, "priv/static/images/Progamacao-geral_#{cinema}.png")
   end
 
-  @hour_regex ~r/(\d\d)h(\d(?:\d|o)m?)?/
+  @hour_regex ~r/((?:\d|t)(?:\d|o))h(\d(?:\d|o)m?)?/
 
   def scan_schedule({days, dates}, movie_list, cinema) do
     TesseractOcr.read(image_path(cinema), %{lang: "por", psm: 4})
@@ -183,14 +196,20 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
 
   def get_time_struct(nil) do nil end
   def get_time_struct(movie_time) do
-    case Regex.run(@hour_regex, String.replace(movie_time, "o", "0")) do
+    movie_time_fixed = String.replace(movie_time, "toh", "15h")
+    |> String.replace("o", "0")
+    |> String.replace("t", "1")
+    case Regex.run(@hour_regex, movie_time_fixed) do
       [_, hh, mm] -> Time.new(String.to_integer(hh), String.to_integer(mm), 00)
       [_, hh] -> Time.new(String.to_integer(hh), 00, 00)
     end
   end
 
   def get_time_struct!(movie_time) do
-    case Regex.run(@hour_regex, String.replace(movie_time, "o", "0")) do
+    movie_time_fixed = String.replace(movie_time, "toh", "15h")
+    |> String.replace("o", "0")
+    |> String.replace("t", "1")
+    case Regex.run(@hour_regex, movie_time_fixed) do
       [_, hh, mm] -> Time.new!(String.to_integer(hh), String.to_integer(mm), 00)
       [_, hh] -> Time.new!(String.to_integer(hh), 00, 00)
     end
@@ -215,12 +234,24 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
     now
   end
 
-  def get_current_movie_week() do
+  def get_current_movie_week(days) do
     begin_of_week = get_datetime_now()
     |> Date.beginning_of_week(:thursday)
 
-    Enum.concat(0..3, [5,6])
-    |> Enum.map(fn v -> Date.add(begin_of_week, v) end)
+    [begin_of_week | case days do
+      [thursday | rest] -> Enum.map(rest, fn day -> case day do
+                                                      "SEX" -> Date.add(begin_of_week, 1)
+                                                      "SAB" -> Date.add(begin_of_week, 2)
+                                                      "SÁB" -> Date.add(begin_of_week, 2)
+                                                      "DOM" -> Date.add(begin_of_week, 3)
+                                                      "SEG" -> Date.add(begin_of_week, 4)
+                                                      "TER" -> Date.add(begin_of_week, 5)
+                                                      "QUA" -> Date.add(begin_of_week, 6)
+                                                      "QUI" -> Date.add(begin_of_week, 7)
+                                                      _ -> Date.add(begin_of_week, 4)
+                                                    end
+                                                      end)
+                     end]
   end
 
   def get_date_from_word(current_movie_week, word) do
@@ -238,7 +269,6 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
   end
 
   def columns_x_start(words) do
-    current_movie_week = get_current_movie_week()
     arr = words
     |> Enum.filter(fn %{word: w} -> String.match?(w, @hour_regex) end)
     |> Enum.reduce([], fn %{x_start: x_start}, acc ->
@@ -254,7 +284,7 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
           end
       end
     end)
-    |> Enum.reverse
+    |> Enum.sort
   end
 
   def rows_y_start(words) do
@@ -271,7 +301,7 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
           end
       end
     end)
-    |> Enum.reverse
+    |> Enum.sort
   end
 
   def tesseract_words(cinema_image_path) do
@@ -280,14 +310,13 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
       %{lang: "por", psm: 4, c: "preserve_interword_spaces=1"}
     )
     |> Enum.filter(fn %{confidence: confidence} ->
-      confidence > 35
+      confidence >= 0
     end)
   end
 
   def get_most_recent_thursday(today_date) do
     Date.beginning_of_week(today_date, :thursday)
   end
-  
 
   def home(conn, params \\ %{"cinema" => "porto"}) do
     cinema = case params do
@@ -298,7 +327,6 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
              end
 
     today_date = get_datetime_now()
-    days = ["QUI", "SEX", "SÁB", "DOM", "TER", "QUA"]
 
     query = Ecto.Query.from(ws in CinemaDaFundacaoWebsitePirata.WeekSchedule,
       where: ws.cinema == ^cinema,
@@ -314,27 +342,13 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
       cinema !== s_c
     end)
 
-    {dates, day_month_list} = get_current_movie_week()
-    |> Enum.map(fn date ->
-      padded_day = date.day
-      |> Integer.to_string
-      |> String.pad_leading(2, "0")
-
-      padded_month = date.month
-      |> Integer.to_string
-      |> String.pad_leading(2, "0")
-
-      {date, "#{padded_day}/#{padded_month}"}
-    end)
-    |> Enum.unzip
-    
     most_recent_schedule = case most_recent_schedule do
                              nil -> %{inserted_at: ~D[2001-01-01]}
                              _ -> most_recent_schedule
                            end
 
     case Date.compare(most_recent_schedule.inserted_at, most_recent_thursday) do
-      :lt -> # generate new schedule and save to database
+      _ -> # generate new schedule and save to database
         Logger.info "generating new schedule, first attempt saving to db"  
         # get cinema filep
         schedule_png =
@@ -393,13 +407,17 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
 
     cinema_image_path = Application.app_dir(:cinema_da_fundacao_website_pirata, "#{cinema}.png")
     File.write!(cinema_image_path, cinema_image)
-    
-    words = tesseract_words(cinema_image_path)
-#    |> IO.inspect(label: "words")
+    resized_image = Mogrify.open(cinema_image_path)
+    |> Mogrify.resize("215%")
+    |> Mogrify.save
+    IO.inspect(Mogrify.identify(resized_image.path))
+    words = tesseract_words(resized_image.path)
+
+    #    |> IO.inspect(label: "words")
 
     columns_x_start = words
     |> columns_x_start
-#    |> IO.inspect(label: "columns x start")
+    |> IO.inspect(label: "columns x start")
 
     rows_y_start = words
     |> rows_y_start
@@ -411,11 +429,40 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
                           end)}
       )
     end)
-#    |> IO.inspect
+    #    |> IO.inspect
+
+    days = Enum.reduce(columns_x_start, [], fn column, acc_x ->
+      case acc_x do
+        [] -> [get_day_from_column(words, column)]
+        [x | xs] -> [get_day_from_column(words, column) | acc_x]
+      end
+    end)
+    |> Enum.reverse
+
+    dbg(schedule_matrix)
+
+    IO.inspect(days, label: "days inspection")
+
+    {dates, day_month_list} = get_current_movie_week(days)
+    |> Enum.map(fn date ->
+      padded_day = date.day
+      |> Integer.to_string
+      |> String.pad_leading(2, "0")
+
+      padded_month = date.month
+      |> Integer.to_string
+      |> String.pad_leading(2, "0")
+
+      {date, "#{padded_day}/#{padded_month}"}
+    end)
+    |> Enum.unzip
+    
 
     new_schedule = words
     |> Enum.reduce(schedule_matrix, fn slot_candidate, acc ->
-#      IO.inspect(slot_candidate)
+      IO.inspect(slot_candidate, label: "slot candidate")
+      IO.inspect(rows_y_start)
+      IO.inspect(columns_x_start)
       row_index =
         Enum.find(
           0..length(rows_y_start)-1,
@@ -429,7 +476,7 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
             slot_candidate.y_start < (yb - 15) && slot_candidate.y_start >= (yt - 15)
           end
         )
-#        |> IO.inspect(label: "row")      
+        |> IO.inspect(label: "row")      
 
       col_index =
         Enum.find(
@@ -444,7 +491,7 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
             slot_candidate.x_start < (xr - 20) && slot_candidate.x_start > (xl - 20)
           end
         )
-#        |> IO.inspect(label: "col")
+        |> IO.inspect(label: "col")
       
       if row_index != nil && col_index != nil do
         row = Enum.at(rows_y_start, row_index)
@@ -465,9 +512,9 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
         acc
       end
     end)
-#    |> IO.inspect
-    |> Enum.zip(Enum.zip(["QUI", "SEX", "SÁB", "DOM", "TER", "QUA"], get_current_movie_week()))
-#    |> IO.inspect(label: "zipped")
+    |> IO.inspect(label: "new schedule before zip")
+    |> Enum.zip(Enum.zip(days, get_current_movie_week(days)))
+    |> IO.inspect(label: "zipped")
     |>
     Enum.reduce(
       %{},
@@ -512,6 +559,8 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
     row_number = 2 + length(new_schedule[Enum.at(days, 0)])
 
     # saving crucial information to database now
+
+    IO.inspect(new_schedule, label: "new_schedule")
     
     CinemaDaFundacaoWebsitePirata.Repo.insert(
       %CinemaDaFundacaoWebsitePirata.WeekSchedule{
@@ -563,7 +612,25 @@ defmodule CinemaDaFundacaoWebsitePirataWeb.PageController do
              end)
             }
           end)
-      row_number = 2 + length(deserialized_most_recent_schedule[Enum.at(days, 0)])
+        days = Map.keys(deserialized_most_recent_schedule["QUI"])
+        {dates, day_month_list} = get_current_movie_week(days)
+        |> Enum.map(fn date ->
+          padded_day = date.day
+          |> Integer.to_string
+          |> String.pad_leading(2, "0")
+          
+          padded_month = date.month
+          |> Integer.to_string
+          |> String.pad_leading(2, "0")
+          
+          {date, "#{padded_day}/#{padded_month}"}
+        end)
+        |> Enum.unzip
+    
+    
+    row_number = 2 + length(deserialized_most_recent_schedule["QUI"])
+    IO.inspect(days,label: "last inspect")
+      IO.inspect(deserialized_most_recent_schedule,label: "last inspect")
       render(
         conn,
         :home,
